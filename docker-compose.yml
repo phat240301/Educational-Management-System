@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: edu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: edu_management
+      POSTGRES_USER: edu_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edu_admin -d edu_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: edu-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: edu-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-edu_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-changeme_local_only}
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  edu-api:
+    build:
+      context: .
+      dockerfile: src/EduManagement.Api/Dockerfile
+    container_name: edu-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=edu-postgres;Port=5432;Database=edu_management;Username=edu_admin;Password=${POSTGRES_PASSWORD:-changeme_local_only}"
+      ConnectionStrings__Redis: "edu-redis:6379"
+      RabbitMq__HostName: edu-rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__UserName: ${RABBITMQ_USER:-edu_admin}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-changeme_local_only}
+      RabbitMq__ExchangeName: edu.events
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  edu-worker:
+    build:
+      context: .
+      dockerfile: src/EduManagement.Worker/Dockerfile
+    container_name: edu-worker
+    restart: unless-stopped
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      RabbitMq__HostName: edu-rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__UserName: ${RABBITMQ_USER:-edu_admin}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-changeme_local_only}
+      RabbitMq__ExchangeName: edu.events
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:

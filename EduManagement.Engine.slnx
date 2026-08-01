@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EduManagement.Api/EduManagement.Api.csproj" />
+    <Project Path="src/EduManagement.Core/EduManagement.Core.csproj" />
+    <Project Path="src/EduManagement.Infrastructure/EduManagement.Infrastructure.csproj" />
+    <Project Path="src/EduManagement.Worker/EduManagement.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EduManagement.IntegrationTests/EduManagement.IntegrationTests.csproj" />
+    <Project Path="tests/EduManagement.UnitTests/EduManagement.UnitTests.csproj" />
+  </Folder>
+</Solution>
